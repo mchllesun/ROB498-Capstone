@@ -15,10 +15,13 @@ find_package(sensor_msgs REQUIRED)
 find_package(mavros REQUIRED)
 find_package(mavros_extras REQUIRED)
 
-# install(
-#   PROGRAMS scripts/task_2.py
-#   DESTINATION lib/${PROJECT_NAME}/
-# )
+install(
+  PROGRAMS 
+  scripts/comms_node.py
+  scripts/odom_node.py
+  scripts/nav_node.py
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 install(
   DIRECTORY launch
