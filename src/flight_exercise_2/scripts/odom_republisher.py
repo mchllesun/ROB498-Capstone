@@ -3,6 +3,7 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped
+from nav_msgs.msg import Odometry
 from flight_exercise_2.srv import SetPoseSource
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 
@@ -41,7 +42,7 @@ class OdomRepublisher(Node):
         )
         
         self.realsense_sub = self.create_subscription(
-            PoseStamped,
+            Odometry,
             self.realsense_topic,
             self.realsense_callback,
             qos_profile
@@ -75,9 +76,14 @@ class OdomRepublisher(Node):
         if self.pose_source == 'vicon':
             self.pose_pub.publish(msg)
     
-    def realsense_callback(self, msg: PoseStamped):
+    def realsense_callback(self, msg: Odometry):
         if self.pose_source == 'realsense':
-            self.pose_pub.publish(msg)
+            pub_msg = PoseStamped()
+            pub_msg.header.stamp = msg.header.stamp
+            pub_msg.header.frame_id = "odom_frame"
+            pub_msg.pose = msg.pose.pose
+
+            self.pose_pub.publish(pub_msg)
 
 
 def main(args=None):
