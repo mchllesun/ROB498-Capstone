@@ -4,6 +4,7 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Odometry
+from sensor_msgs.msg import TimeReference
 from flight_exercise_2.srv import SetPoseSource
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 
@@ -16,13 +17,21 @@ class OdomRepublisher(Node):
         self.pose_source = 'realsense'
         
         # Topic definitions
-        self.vicon_topic = '/Vicon/ROB498_Drone/ROB498_Drone'
+        self.vicon_topic = '/vicon/ROB498_Drone/ROB498_Drone'
         self.realsense_topic = '/camera/pose/sample'
         self.mavros_topic = '/mavros/vision_pose/pose'
+
+        self.time = self.get_clock().now().to_msg()
         
         # QoS profile: sensor poses are best effort
         qos_profile = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=10
+        )
+
+        qos_profile_r = QoSProfile(
+            reliability=ReliabilityPolicy.RELIABLE,
             history=HistoryPolicy.KEEP_LAST,
             depth=10
         )
@@ -31,7 +40,7 @@ class OdomRepublisher(Node):
         self.pose_pub = self.create_publisher(
             PoseStamped,
             self.mavros_topic,
-            qos_profile
+            qos_profile_r
         )
 
         self.vicon_sub = self.create_subscription(
@@ -45,6 +54,13 @@ class OdomRepublisher(Node):
             Odometry,
             self.realsense_topic,
             self.realsense_callback,
+            qos_profile
+        )
+
+        self.time_sub = self.create_subscription(
+            TimeReference,
+            "/mavros/time_reference",
+            self.time_callback,
             qos_profile
         )
         
@@ -73,17 +89,27 @@ class OdomRepublisher(Node):
         return response
     
     def vicon_callback(self, msg: PoseStamped):
+        current_time = self.get_clock().now().to_msg()
         if self.pose_source == 'vicon':
-            self.pose_pub.publish(msg)
+            pub_msg = PoseStamped()
+            pub_msg.header.stamp = current_time
+            pub_msg.header.frame_id = "map"
+            pub_msg.pose = msg.pose
+
+            self.pose_pub.publish(pub_msg)
     
     def realsense_callback(self, msg: Odometry):
+        current_time = self.get_clock().now().to_msg()
         if self.pose_source == 'realsense':
             pub_msg = PoseStamped()
-            pub_msg.header.stamp = msg.header.stamp
-            pub_msg.header.frame_id = "odom_frame"
+            pub_msg.header.stamp = current_time
+            pub_msg.header.frame_id = "map"
             pub_msg.pose = msg.pose.pose
 
             self.pose_pub.publish(pub_msg)
+
+    def time_callback(self, msg: TimeReference):
+        self.time = msg.time_ref
 
 
 def main(args=None):

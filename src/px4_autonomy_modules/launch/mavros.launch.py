@@ -71,6 +71,5 @@ def generate_launch_description():
                 LaunchConfiguration("pluginlists_yaml"),
                 LaunchConfiguration("config_yaml")
             ],
-            
         )
     ])
