@@ -22,6 +22,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
 install(
   PROGRAMS scripts/odom_republisher.py
   scripts/comms_node.py
+  scripts/offboard_test.py
   DESTINATION lib/${PROJECT_NAME}/
 )
 
