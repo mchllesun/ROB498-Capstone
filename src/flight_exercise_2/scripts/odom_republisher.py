@@ -8,13 +8,12 @@ from sensor_msgs.msg import TimeReference
 from flight_exercise_2.srv import SetPoseSource
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 
-
 class OdomRepublisher(Node):
     def __init__(self):
         super().__init__('odom_republisher')
         
         # Current pose source: 'vicon' or 'realsense'
-        self.pose_source = 'realsense'
+        self.pose_source = 'vicon'
         
         # Topic definitions
         self.vicon_topic = '/vicon/ROB498_Drone/ROB498_Drone'
@@ -96,6 +95,9 @@ class OdomRepublisher(Node):
             pub_msg.header.frame_id = "map"
             pub_msg.pose = msg.pose
 
+            pub_msg.pose.position.x = -msg.pose.position.x
+            pub_msg.pose.position.y = -msg.pose.position.y
+
             self.pose_pub.publish(pub_msg)
     
     def realsense_callback(self, msg: Odometry):
@@ -105,6 +107,9 @@ class OdomRepublisher(Node):
             pub_msg.header.stamp = current_time
             pub_msg.header.frame_id = "map"
             pub_msg.pose = msg.pose.pose
+
+            pub_msg.pose.position.x = -msg.pose.pose.position.x
+            pub_msg.pose.position.y = -msg.pose.pose.position.y
 
             self.pose_pub.publish(pub_msg)
 
