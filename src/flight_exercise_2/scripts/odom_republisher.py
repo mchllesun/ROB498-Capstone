@@ -13,7 +13,7 @@ class OdomRepublisher(Node):
         super().__init__('odom_republisher')
         
         # Current pose source: 'vicon' or 'realsense'
-        self.pose_source = 'vicon'
+        self.pose_source = 'realsense'
         
         # Topic definitions
         self.vicon_topic = '/vicon/ROB498_Drone/ROB498_Drone'
@@ -97,6 +97,7 @@ class OdomRepublisher(Node):
 
             pub_msg.pose.position.x = -msg.pose.position.x
             pub_msg.pose.position.y = -msg.pose.position.y
+            pub_msg.pose.position.z = msg.pose.position.z + 0.1
 
             self.pose_pub.publish(pub_msg)
     

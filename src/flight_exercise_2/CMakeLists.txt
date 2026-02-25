@@ -23,6 +23,7 @@ install(
   PROGRAMS scripts/odom_republisher.py
   scripts/comms_node.py
   scripts/offboard_test.py
+  scripts/mission_planner.py
   DESTINATION lib/${PROJECT_NAME}/
 )
 
