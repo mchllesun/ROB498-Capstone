@@ -6,11 +6,13 @@ from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped, PoseArray
 from std_srvs.srv import Trigger
 from enum import Enum
+from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 
 class State(Enum):
     IDLE = 'IDLE'
     LAUNCHED = 'LAUNCHED'
     WAYPOINT = 'WAYPOINT'
+    HOLD = 'HOLD'
     LANDING = 'LANDING'
     ABORTED = 'ABORTED'
 
@@ -18,26 +20,29 @@ class State(Enum):
 TRANSITIONS = {
     State.IDLE:     {State.LAUNCHED},
     State.LAUNCHED: {State.WAYPOINT, State.LANDING, State.ABORTED},
-    State.WAYPOINT: {State.LANDING, State.ABORTED},
+    State.WAYPOINT: {State.HOLD, State.LANDING, State.ABORTED},
+    State.HOLD:     {State.WAYPOINT, State.LANDING, State.ABORTED},
     State.LANDING:  {State.IDLE, State.LAUNCHED, State.ABORTED},
     State.ABORTED:  {State.IDLE, State.LAUNCHED},
 }
 
 class MissionPlanner(Node):
 
-    HOVER_HEIGHT = 0.33       # meters
+    HOVER_HEIGHT = 0.4       # meters
     WAYPOINT_THRESHOLD = 0.15  # meters — distance to consider waypoint reached
+    HOLD_DURATION = 3.0       # seconds — time to hold at each waypoint
 
     def __init__(self):
         super().__init__('mission_planner')
 
         # --- FSM state ---
         self.state = State.IDLE
-        self.target_pose = PoseStamped()
+        self.target_pose = self._make_pose(z=-0.1)
 
         # --- Waypoint tracking ---
         self.waypoints = []       # list of PoseStamped
         self.waypoint_index = 0
+        self.hold_start_time = None
 
         # --- Current drone position ---
         self.current_pose = None  # PoseStamped
@@ -48,13 +53,19 @@ class MissionPlanner(Node):
         )
         self.timer = self.create_timer(0.05, self._publish_setpoint)  # 20 Hz
 
-        # --- Waypoint check timer at 2 Hz ---
-        self.waypoint_timer = self.create_timer(0.5, self._check_waypoint)  # 2 Hz
+        # --- State update timer at 2 Hz ---
+        self.state_timer = self.create_timer(0.5, self._state_update)  # 2 Hz
+
+        qos_profile = QoSProfile(
+            reliability=ReliabilityPolicy.BEST_EFFORT,
+            history=HistoryPolicy.KEEP_LAST,
+            depth=10
+        )
 
         # --- Subscribe to current position (mavros local position) ---
         self.pose_sub = self.create_subscription(
-            PoseStamped, 'mavros/vision_pose/pose',
-            self._cb_current_pose, 10
+            PoseStamped, '/mavros/local_position/pose',
+            self._cb_current_pose, qos_profile
         )
 
         # --- Waypoint subscriber ---
@@ -78,7 +89,9 @@ class MissionPlanner(Node):
 
         self.get_logger().info(f'Mission planner started. State: {self.state.value}')
 
-    # ---------- helpers ----------
+    # =====================================================================
+    #  Helpers
+    # =====================================================================
     def _make_pose(self, x=0.0, y=0.0, z=0.0):
         pose = PoseStamped()
         pose.header.frame_id = 'map'
@@ -97,20 +110,83 @@ class MissionPlanner(Node):
         dz = self.current_pose.pose.position.z - pose.pose.position.z
         return math.sqrt(dx * dx + dy * dy + dz * dz)
 
-
     def _transition(self, new_state: State) -> bool:
         """Attempt a state transition. Returns True if valid."""
         if new_state in TRANSITIONS.get(self.state, set()):
             old = self.state
             self.state = new_state
             self.get_logger().info(f'Transition: {old.value} -> {new_state.value}')
+            self._on_enter(new_state)
             return True
         self.get_logger().warn(
             f'Invalid transition: {self.state.value} -> {new_state.value}'
         )
         return False
 
-    # ---------- callbacks ----------
+    # =====================================================================
+    #  State entry actions — all side effects for entering a state live here
+    # =====================================================================
+    def _on_enter(self, state: State):
+        if state == State.LAUNCHED:
+            tpose = self._make_pose(z=self.HOVER_HEIGHT)
+            # tpose.orientation.z = -1
+            # tpose.orientation.w = 0
+            self.target_pose = tpose
+
+        elif state == State.WAYPOINT:
+            wp = self.waypoints[self.waypoint_index]
+            self.target_pose = self._make_pose(
+                wp.pose.position.x,
+                wp.pose.position.y,
+                wp.pose.position.z,
+            )
+            self.get_logger().info(
+                f'Waypoint {self.waypoint_index + 1}/{len(self.waypoints)}: '
+                f'({wp.pose.position.x:.2f}, {wp.pose.position.y:.2f}, '
+                f'{wp.pose.position.z:.2f})'
+            )
+
+        elif state == State.HOLD:
+            self.hold_start_time = self.get_clock().now()
+            self.get_logger().info(
+                f'Holding at waypoint {self.waypoint_index + 1} '
+                f'for {self.HOLD_DURATION}s'
+            )
+
+        elif state == State.LANDING:
+            self.target_pose = self._make_pose(z=-0.10)
+
+        elif state == State.ABORTED:
+            self.target_pose = self._make_pose(z=-0.2)
+
+    # =====================================================================
+    #  State update — periodic logic for each state (runs at 2 Hz)
+    # =====================================================================
+    def _state_update(self):
+        if self.state == State.WAYPOINT:
+            if self.current_pose is None:
+                return
+            dist = self._distance_to(self.target_pose)
+            if dist < self.WAYPOINT_THRESHOLD:
+                self._transition(State.HOLD)
+
+        elif self.state == State.HOLD:
+            elapsed = (self.get_clock().now() - self.hold_start_time).nanoseconds / 1e9
+            if elapsed >= self.HOLD_DURATION:
+                self.get_logger().info(
+                    f'Hold complete at waypoint {self.waypoint_index + 1}'
+                )
+                if self.waypoint_index + 1 < len(self.waypoints):
+                    self.waypoint_index += 1
+                    self._transition(State.WAYPOINT)
+                else:
+                    self.get_logger().info(
+                        'All waypoints visited — holding last position'
+                    )
+
+    # =====================================================================
+    #  Subscriber callbacks
+    # =====================================================================
     def _cb_current_pose(self, msg: PoseStamped):
         self.current_pose = msg
 
@@ -118,51 +194,29 @@ class MissionPlanner(Node):
         self.target_pose.header.stamp = self.get_clock().now().to_msg()
         self.pose_pub.publish(self.target_pose)
 
-    def _check_waypoint(self):
-        """Check if we've reached the current waypoint (runs at 2 Hz)."""
-        if self.state == State.WAYPOINT and self.current_pose is not None:
-            dist = self._distance_to(self.target_pose)
-            if dist < self.WAYPOINT_THRESHOLD:
-                self._advance_waypoint()
-
     def _cb_waypoints(self, msg: PoseArray):
-        self.waypoints = []
+        if not len(self.waypoints) == 0:
+            return
         for pose in msg.poses:
             ps = PoseStamped()
             ps.header.frame_id = 'map'
             ps.pose = pose
+            # ps.pose.position.x = -pose.position.x
+            # ps.pose.position.y = -pose.position.y
+
+            # ps.pose.orientation.x = 0
+            # ps.pose.orientation.y = 0
+            # ps.pose.orientation.z = -1
+            # ps.pose.orientation.w = 0
             self.waypoints.append(ps)
         self.waypoint_index = 0
         self.get_logger().info(f'Received {len(self.waypoints)} waypoints')
 
-    def _set_waypoint_target(self):
-        """Set target_pose to current waypoint with orientation facing the next one."""
-        wp = self.waypoints[self.waypoint_index]
-        self.target_pose = self._make_pose(
-            wp.pose.position.x,
-            wp.pose.position.y,
-            wp.pose.position.z,
-        )
-        self.get_logger().info(
-            f'Waypoint {self.waypoint_index + 1}/{len(self.waypoints)}: '
-            f'({wp.pose.position.x:.2f}, {wp.pose.position.y:.2f}, {wp.pose.position.z:.2f})'
-        )
-
-    def _advance_waypoint(self):
-        """Advance to the next waypoint if available."""
-        if self.waypoint_index + 1 < len(self.waypoints):
-            self.waypoint_index += 1
-            self._set_waypoint_target()
-        else:
-            self.get_logger().info('All waypoints visited — holding last position')
-
-    # ---------- service callbacks ----------
+    # =====================================================================
+    #  Service callbacks — just validate and transition, no side effects
+    # =====================================================================
     def _cb_launch(self, request, response):
-        if self._transition(State.LAUNCHED):
-            self.target_pose = self._make_pose(z=self.HOVER_HEIGHT)
-            response.success = True
-        else:
-            response.success = False
+        response.success = self._transition(State.LAUNCHED)
         return response
 
     def _cb_test(self, request, response):
@@ -171,28 +225,16 @@ class MissionPlanner(Node):
             response.success = False
             response.message = 'No waypoints received'
             return response
-        if self._transition(State.WAYPOINT):
-            self.waypoint_index = 0
-            self._set_waypoint_target()
-            response.success = True
-        else:
-            response.success = False
+        self.waypoint_index = 0
+        response.success = self._transition(State.WAYPOINT)
         return response
 
     def _cb_land(self, request, response):
-        if self._transition(State.LANDING):
-            self.target_pose = self._make_pose(z=-0.10)
-            response.success = True
-        else:
-            response.success = False
+        response.success = self._transition(State.LANDING)
         return response
 
     def _cb_abort(self, request, response):
-        if self._transition(State.ABORTED):
-            self.target_pose = self._make_pose(z=-0.2)
-            response.success = True
-        else:
-            response.success = False
+        response.success = self._transition(State.ABORTED)
         return response
 
 

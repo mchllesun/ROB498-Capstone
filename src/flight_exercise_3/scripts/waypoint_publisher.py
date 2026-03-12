@@ -21,11 +21,10 @@ class WaypointPublisher(Node):
 
         # --- Define dummy waypoints (x, y, z) ---
         waypoint_coords = [
-            (0.0, 0.0, 0.5),
-            (1.0, 0.0, 0.5),
-            (1.0, 1.0, 0.5),
-            (0.0, 1.0, 0.5),
-            (0.0, 0.0, 0.5),
+            (0.0, 0.0, 0.0),
+            (-2.0, 0.0, 1.0),
+            (1.0, -2.0, 1.5),
+            (0.0, 1.0, 0.45),
         ]
 
         for x, y, z in waypoint_coords:

@@ -48,7 +48,7 @@ class CommNode(Node):
         return response
 
     def callback_waypoints(self, msg: PoseArray):
-        self.get_logger().info(f'Received {len(msg.poses)} waypoints. Forwarding to mission planner.')
+        # self.get_logger().info(f'Received {len(msg.poses)} waypoints. Forwarding to mission planner.')
         self.waypoint_pub.publish(msg)
 
 
