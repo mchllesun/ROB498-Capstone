@@ -147,9 +147,6 @@ class OdomRepublisher(Node):
         pub_msg.header.stamp = current_time
         pub_msg.header.frame_id = "map"
         pub_msg.pose = msg.pose
-        # pub_msg.pose.position.x = -msg.pose.position.x
-        # pub_msg.pose.position.y = -msg.pose.position.y
-        # pub_msg.pose.position.z = msg.pose.position.z
 
         # Store transformed vicon message
         self.latest_vicon_msg = pub_msg
@@ -192,7 +189,7 @@ class OdomRepublisher(Node):
         pub_msg.pose = msg.pose.pose
         # pub_msg.pose.position.x = -msg.pose.pose.position.x
         # pub_msg.pose.position.y = -msg.pose.pose.position.y
-        pub_msg.pose.position.z = msg.pose.pose.position.z - 0.1
+        pub_msg.pose.position.z = msg.pose.pose.position.z + 0.1
 
         # Store transformed realsense message
         self.latest_realsense_msg = pub_msg

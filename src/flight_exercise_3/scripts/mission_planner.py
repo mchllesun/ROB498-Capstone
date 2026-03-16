@@ -30,7 +30,7 @@ class MissionPlanner(Node):
 
     HOVER_HEIGHT = 0.4       # meters
     WAYPOINT_THRESHOLD = 0.15  # meters — distance to consider waypoint reached
-    HOLD_DURATION = 3.0       # seconds — time to hold at each waypoint
+    HOLD_DURATION = 2.0       # seconds — time to hold at each waypoint
 
     def __init__(self):
         super().__init__('mission_planner')
@@ -98,6 +98,7 @@ class MissionPlanner(Node):
         pose.pose.position.x = x
         pose.pose.position.y = y
         pose.pose.position.z = z
+        # pose.pose.orientation.y = 1.0
         pose.pose.orientation.w = 1.0
         return pose
 
@@ -201,8 +202,8 @@ class MissionPlanner(Node):
             ps = PoseStamped()
             ps.header.frame_id = 'map'
             ps.pose = pose
-            # ps.pose.position.x = -pose.position.x
-            # ps.pose.position.y = -pose.position.y
+            ps.pose.position.x = -pose.position.x
+            ps.pose.position.y = -pose.position.y
 
             # ps.pose.orientation.x = 0
             # ps.pose.orientation.y = 0
