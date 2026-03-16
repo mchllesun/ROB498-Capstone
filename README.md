@@ -17,7 +17,7 @@ under the drone while holding a fixed hover height.
 - `mavros` local position is available on `/mavros/local_position/pose`.
 - Camera images are available on `/imx/image/raw`.
 - `cv_bridge`, OpenCV, and `ultralytics` are installed in the runtime environment.
-- The YOLO weights file `yolo26n.pt` is available where Ultralytics can load it.
+- The packaged YOLO weights file is installed with `flight_exercise_3/models/yolo26n.pt`.
 
 ### Launch
 
