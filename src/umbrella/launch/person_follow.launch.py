@@ -1,5 +1,7 @@
 from launch import LaunchDescription
+from launch.substitutions import PathJoinSubstitution
 from launch_ros.actions import Node
+from launch_ros.substitutions import FindPackageShare
 
 
 def generate_launch_description():
@@ -13,7 +15,11 @@ def generate_launch_description():
                 'image_topic': '/imx/image/raw',
                 'pose_topic': '/mavros/local_position/pose',
                 'setpoint_topic': '/mavros/setpoint_position/local',
-                'model_path': 'yolo26n.pt',
+                'model_path': PathJoinSubstitution([
+                    FindPackageShare('flight_exercise_3'),
+                    'models',
+                    'yolo26n.pt',
+                ]),
                 'use_fp16': True,
                 'device': 'cuda:0',
                 'imgsz': 320,
