@@ -24,6 +24,7 @@ install(
   scripts/comms_node.py
   scripts/mission_planner.py
   scripts/waypoint_publisher.py
+  scripts/person_follow_yolo.py
   DESTINATION lib/${PROJECT_NAME}/
 )
 
