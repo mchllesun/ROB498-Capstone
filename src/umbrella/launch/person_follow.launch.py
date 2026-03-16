@@ -16,7 +16,7 @@ def generate_launch_description():
                 'pose_topic': '/mavros/local_position/pose',
                 'setpoint_topic': '/mavros/setpoint_position/local',
                 'model_path': PathJoinSubstitution([
-                    FindPackageShare('flight_exercise_3'),
+                    FindPackageShare('umbrella'),
                     'models',
                     'yolo26n.pt',
                 ]),
