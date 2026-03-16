@@ -28,7 +28,7 @@ install(
 )
 
 install(
-  DIRECTORY launch models
+  DIRECTORY launch
   DESTINATION share/${PROJECT_NAME}
 )
 
