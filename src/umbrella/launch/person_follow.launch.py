@@ -5,7 +5,7 @@ from launch_ros.actions import Node
 def generate_launch_description():
     return LaunchDescription([
         Node(
-            package='flight_exercise_3',
+            package='umbrella',
             executable='person_follow_yolo.py',
             name='person_follow_yolo',
             output='screen',
@@ -24,5 +24,11 @@ def generate_launch_description():
                 'center_deadband': 0.08,
                 'min_detection_confidence': 0.35,
             }],
+        ),
+        Node(
+            package='umbrella',
+            executable='imx_camera_driver.py',
+            name='imx_camera_driver',
+            output='screen',
         ),
     ])
