@@ -3,45 +3,40 @@ import rclpy
 from rclpy.node import Node
 from std_srvs.srv import Empty, Trigger
 
-# Callback handlers
-def handle_launch():
-    print('Launch Requested. Your drone should take off.')
-
-def handle_test():
-    print('Test Requested. Your drone should perform the required tasks. Recording starts now.')
-
-def handle_land():
-    print('Land Requested. Your drone should land.')
-
-def handle_abort():
-    print('Abort Requested. Your drone should land immediately due to safety considerations')
-
-# Service callbacks
-def callback_launch(request, response):
-    handle_launch()
-    return response
-
-def callback_test(request, response):
-    handle_test()
-    return response
-
-def callback_land(request, response):
-    handle_land()
-    return response
-
-def callback_abort(request, response):
-    handle_abort()
-    return response
-
 class CommNode(Node):
     def __init__(self):
         super().__init__('rob498_drone_11')
-        self.srv_launch = self.create_service(Trigger, 'rob498_drone_11/comm/launch', callback_launch)
-        self.srv_test = self.create_service(Trigger, 'rob498_drone_11/comm/test', callback_test)
-        self.srv_land = self.create_service(Trigger, 'rob498_drone_11/comm/land', callback_land)
-        self.srv_abort = self.create_service(Trigger, 'rob498_drone_11/comm/abort', callback_abort)
+
+        # Service clients to mission_planner
+        self.cli_launch = self.create_client(Trigger, 'mission_planner/launch')
+        self.cli_land = self.create_client(Trigger, 'mission_planner/land')
+        self.cli_abort = self.create_client(Trigger, 'mission_planner/abort')
+
+        self.srv_launch = self.create_service(Trigger, 'rob498_drone_11/comm/launch', self.callback_launch)
+        self.srv_test = self.create_service(Trigger, 'rob498_drone_11/comm/test', self.callback_test)
+        self.srv_land = self.create_service(Trigger, 'rob498_drone_11/comm/land', self.callback_land)
+        self.srv_abort = self.create_service(Trigger, 'rob498_drone_11/comm/abort', self.callback_abort)
 
         self.get_logger().info(f'Comm node started.')
+
+    def callback_launch(self, request, response):
+        print('Launch Requested. Your drone should take off.')
+        self.cli_launch.call_async(Trigger.Request())
+        return response
+
+    def callback_test(self, request, response):
+        print('Test Requested. Your drone should perform the required tasks. Recording starts now.')
+        return response
+
+    def callback_land(self, request, response):
+        print('Land Requested. Your drone should land.')
+        self.cli_land.call_async(Trigger.Request())
+        return response
+
+    def callback_abort(self, request, response):
+        print('Abort Requested. Your drone should land immediately due to safety considerations')
+        self.cli_abort.call_async(Trigger.Request())
+        return response
 
 def main(args=None):
     rclpy.init(args=args)
