@@ -36,12 +36,12 @@ def generate_launch_description():
             name='imx_camera_driver',
             output='screen',
         ),
-        Node(
-            package=package_name,
-            executable='obj_tracker_node.py',
-            name='obj_tracker_node',
-            output='screen',
-        ),
+        # Node(
+        #     package=package_name,
+        #     executable='obj_tracker_node.py',
+        #     name='obj_tracker_node',
+        #     output='screen',
+        # ),
         # Node(
         #     package='image_transport',
         #     executable='republish',
@@ -52,7 +52,7 @@ def generate_launch_description():
         #         ('out', '/imx/image/compressed'),
         #     ],
         #     output='screen',
-        # ),       
+        # ),
         # Node(
         #     package='tf2_ros',
         #     executable='static_transform_publisher',
