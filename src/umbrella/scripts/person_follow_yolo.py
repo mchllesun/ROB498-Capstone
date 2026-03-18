@@ -3,9 +3,8 @@
 import math
 from typing import Optional
 
+import numpy as np
 import rclpy
-import cv2
-from cv_bridge import CvBridge
 from geometry_msgs.msg import PoseStamped
 from rclpy.node import Node
 from rclpy.qos import HistoryPolicy, QoSProfile, ReliabilityPolicy
@@ -25,8 +24,8 @@ class PersonFollowYolo(Node):
         self.declare_parameter('setpoint_topic', '/mavros/setpoint_position/local')
         self.declare_parameter('model_path', 'yolo26n.pt')
         self.declare_parameter('target_class', 'person')
-        self.declare_parameter('use_fp16', True)
-        self.declare_parameter('device', 'cpu')
+        self.declare_parameter('use_fp16', False)
+        self.declare_parameter('device', 'cuda:0')
         self.declare_parameter('imgsz', 320)
         self.declare_parameter('hover_height_m', 1.5)
         self.declare_parameter('kp_image_x', 0.6)
@@ -57,13 +56,13 @@ class PersonFollowYolo(Node):
 
         model_path = self.get_parameter('model_path').value
         self.model = YOLO(model_path)
-        self.bridge = CvBridge()
         self.current_pose: Optional[PoseStamped] = None
         self.target_pose = PoseStamped()
         self.target_pose.header.frame_id = 'map'
         self.target_pose.pose.orientation.w = 1.0
 
         self.last_detection_time = None
+        self._frame_count = 0
 
         qos_profile = QoSProfile(
             reliability=ReliabilityPolicy.BEST_EFFORT,
@@ -101,7 +100,7 @@ class PersonFollowYolo(Node):
         if self.current_pose is None:
             return
 
-        frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+        frame = np.frombuffer(msg.data, dtype=np.uint8).reshape(msg.height, msg.width, 3)
         results = self.model.predict(
             frame,
             verbose=False,
@@ -113,8 +112,13 @@ class PersonFollowYolo(Node):
             self._handle_missing_detection()
             return
 
+        self._frame_count += 1
         detection = self._select_person(results[0])
         if detection is None:
+            if self._frame_count % 30 == 0:
+                self.get_logger().info(
+                    f'YOLO running ({self._frame_count} frames processed) — no person detected.'
+                )
             self._handle_missing_detection()
             return
 
@@ -135,10 +139,10 @@ class PersonFollowYolo(Node):
         self.target_pose.header.stamp = self.get_clock().now().to_msg()
         self.last_detection_time = self.get_clock().now()
 
-        self.get_logger().debug(
-            f'Person detected with confidence {confidence:.2f}. '
-            f'Image error=({norm_err_x:.2f}, {norm_err_y:.2f}), '
-            f'target=({self.target_pose.pose.position.x:.2f}, '
+        self.get_logger().info(
+            f'Person detected (conf={confidence:.2f}) '
+            f'err=({norm_err_x:.2f}, {norm_err_y:.2f}) '
+            f'-> target=({self.target_pose.pose.position.x:.2f}, '
             f'{self.target_pose.pose.position.y:.2f}, '
             f'{self.target_pose.pose.position.z:.2f})'
         )

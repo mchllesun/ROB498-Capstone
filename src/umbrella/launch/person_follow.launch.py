@@ -11,6 +11,7 @@ def generate_launch_description():
             executable='person_follow_yolo.py',
             name='person_follow_yolo',
             output='screen',
+            additional_env={'LD_PRELOAD': '/usr/lib/aarch64-linux-gnu/libgomp.so.1'},
             parameters=[{
                 'image_topic': '/imx/image/raw',
                 'pose_topic': '/mavros/local_position/pose',
@@ -20,7 +21,7 @@ def generate_launch_description():
                     'models',
                     'yolo26n.pt',
                 ]),
-                'use_fp16': True,
+                'use_fp16': False,
                 'device': 'cuda:0',
                 'imgsz': 320,
                 'hover_height_m': 1.5,
