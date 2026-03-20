@@ -30,7 +30,7 @@ class ObjTrackerNode(Node):
 
     def _cb_image(self, msg: Image):
         frame = self._bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
-        results = self.model.predict(
+        results = self._detection_model.predict(
             frame,
             verbose=True,
             device='cuda',

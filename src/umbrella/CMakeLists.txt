@@ -26,6 +26,9 @@ install(
   scripts/imx_camera_driver.py
   scripts/person_follow_yolo.py
   scripts/obj_tracker_node.py
+  scripts/yolo_detector_node.py
+  scripts/person_follower_node.py
+  scripts/follower_math.py
   DESTINATION lib/${PROJECT_NAME}/
 )
 

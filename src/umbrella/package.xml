@@ -21,6 +21,7 @@
   <depend>cv_bridge</depend>
   <depend>mavros</depend>
   <depend>mavros_extras</depend>
+  <depend>vision_msgs</depend>
   <exec_depend>python3-ultralytics</exec_depend>
 
   <test_depend>ament_lint_auto</test_depend>
