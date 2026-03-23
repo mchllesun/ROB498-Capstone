@@ -42,6 +42,12 @@ def generate_launch_description():
             name='obj_tracker_node',
             output='screen',
         ),
+        Node(
+            package=package_name,
+            executable='waypoint_generator.py',
+            name='waypoint_generator',
+            output='screen',
+        ),
         # Node(
         #     package='image_transport',
         #     executable='republish',

@@ -29,6 +29,7 @@ install(
   scripts/mission_planner.py
   scripts/imx_camera_driver.py
   scripts/obj_tracker_node.py
+  scripts/waypoint_generator.py
   DESTINATION lib/${PROJECT_NAME}/
 )
 
