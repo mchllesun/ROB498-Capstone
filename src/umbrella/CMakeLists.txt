@@ -12,6 +12,7 @@ find_package(rclpy REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
 # Generate service and message interfaces
@@ -19,6 +20,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/SetPoseSource.srv"
   "msg/Detection.msg"
   "msg/DetectionArray.msg"
+  DEPENDENCIES std_msgs
 )
 
 install(
@@ -26,7 +28,6 @@ install(
   scripts/comms_node.py
   scripts/mission_planner.py
   scripts/imx_camera_driver.py
-  scripts/person_follow_yolo.py
   scripts/obj_tracker_node.py
   DESTINATION lib/${PROJECT_NAME}/
 )

@@ -42,17 +42,17 @@ def generate_launch_description():
             name='obj_tracker_node',
             output='screen',
         ),
-        Node(
-            package='image_transport',
-            executable='republish',
-            name='imx_republisher',
-            arguments = ['raw', 'compressed'],
-            remappings=[
-                ('in', '/imx/image/raw'),
-                ('out', '/imx/image/compressed'),
-            ],
-            output='screen',
-        ),
+        # Node(
+        #     package='image_transport',
+        #     executable='republish',
+        #     name='imx_republisher',
+        #     arguments = ['raw', 'compressed'],
+        #     remappings=[
+        #         ('in', '/imx/image/raw'),
+        #         ('out/compressed', '/imx/image/compressed'),
+        #     ],
+        #     output='screen',
+        # ),
         # Node(
         #     package='tf2_ros',
         #     executable='static_transform_publisher',

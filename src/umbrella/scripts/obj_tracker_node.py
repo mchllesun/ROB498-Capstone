@@ -35,17 +35,17 @@ class ObjTrackerNode(Node):
             DetectionArray, "umbrella/detections", 10
         )
 
-        self._detection_model = YOLO("/home/jetson/ROB498-Capstone/install/umbrella/share/umbrella/models/yolo26n.pt")
+        self._detection_model = YOLO("/home/jetson/ROB498-Capstone/install/umbrella/share/umbrella/models/yolo26s.pt")
         self._bridge = CvBridge()
 
         self.get_logger().info("Running warmup inference (may take 10-30s)...")
-        dummy = np.zeros((320, 320, 3), dtype=np.uint8)
+        dummy = np.zeros((256, 256, 3), dtype=np.uint8)
         self._detection_model.predict(
             dummy,
             verbose=False,
             device='cuda',
             half=True,
-            imgsz=320,
+            imgsz=256,
             conf=0.35,
         )
         self.get_logger().info("Warmup done.")
@@ -57,7 +57,7 @@ class ObjTrackerNode(Node):
             verbose=False,
             device='cuda',
             half=True,
-            imgsz=320,
+            imgsz=256,
             conf=0.35,
         )
 
