@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import math
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped, PoseArray
@@ -12,7 +11,6 @@ class State(Enum):
     IDLE = 'IDLE'
     LAUNCHED = 'LAUNCHED'
     WAYPOINT = 'WAYPOINT'
-    HOLD = 'HOLD'
     LANDING = 'LANDING'
     ABORTED = 'ABORTED'
 
@@ -20,8 +18,7 @@ class State(Enum):
 TRANSITIONS = {
     State.IDLE:     {State.LAUNCHED},
     State.LAUNCHED: {State.WAYPOINT, State.LANDING, State.ABORTED},
-    State.WAYPOINT: {State.HOLD, State.LANDING, State.ABORTED},
-    State.HOLD:     {State.WAYPOINT, State.LANDING, State.ABORTED},
+    State.WAYPOINT: {State.LANDING, State.ABORTED},
     State.LANDING:  {State.IDLE, State.LAUNCHED, State.ABORTED},
     State.ABORTED:  {State.IDLE, State.LAUNCHED},
 }
@@ -29,8 +26,6 @@ TRANSITIONS = {
 class MissionPlanner(Node):
 
     HOVER_HEIGHT = 0.4       # meters
-    WAYPOINT_THRESHOLD = 0.15  # meters — distance to consider waypoint reached
-    HOLD_DURATION = 2.0       # seconds — time to hold at each waypoint
 
     def __init__(self):
         super().__init__('mission_planner')
@@ -42,10 +37,10 @@ class MissionPlanner(Node):
         # --- Waypoint tracking ---
         self.waypoints = []       # list of PoseStamped
         self.waypoint_index = 0
-        self.hold_start_time = None
 
         # --- Current drone position ---
         self.current_pose = None  # PoseStamped
+
 
         # --- Publisher: setpoint position at 20 Hz ---
         self.pose_pub = self.create_publisher(
@@ -71,6 +66,12 @@ class MissionPlanner(Node):
         # --- Waypoint subscriber ---
         self.waypoint_sub = self.create_subscription(
             PoseArray, 'mission_planner/waypoints', self._cb_waypoints, 10
+        )
+
+        # --- Dot tracker waypoint subscriber ---
+        self.tracker_wp_sub = self.create_subscription(
+            PoseStamped, '/waypoint_generator/target',
+            self._cb_tracker_waypoint, 10
         )
 
         # --- Services ---
@@ -101,15 +102,6 @@ class MissionPlanner(Node):
         # pose.pose.orientation.y = 1.0
         pose.pose.orientation.w = 1.0
         return pose
-
-    def _distance_to(self, pose: PoseStamped) -> float:
-        """Euclidean distance from current position to a target pose."""
-        if self.current_pose is None:
-            return float('inf')
-        dx = self.current_pose.pose.position.x - pose.pose.position.x
-        dy = self.current_pose.pose.position.y - pose.pose.position.y
-        dz = self.current_pose.pose.position.z - pose.pose.position.z
-        return math.sqrt(dx * dx + dy * dy + dz * dz)
 
     def _transition(self, new_state: State) -> bool:
         """Attempt a state transition. Returns True if valid."""
@@ -147,13 +139,6 @@ class MissionPlanner(Node):
                 f'{wp.pose.position.z:.2f})'
             )
 
-        elif state == State.HOLD:
-            self.hold_start_time = self.get_clock().now()
-            self.get_logger().info(
-                f'Holding at waypoint {self.waypoint_index + 1} '
-                f'for {self.HOLD_DURATION}s'
-            )
-
         elif state == State.LANDING:
             self.target_pose = self._make_pose(z=-0.10)
 
@@ -164,26 +149,7 @@ class MissionPlanner(Node):
     #  State update — periodic logic for each state (runs at 2 Hz)
     # =====================================================================
     def _state_update(self):
-        if self.state == State.WAYPOINT:
-            if self.current_pose is None:
-                return
-            dist = self._distance_to(self.target_pose)
-            if dist < self.WAYPOINT_THRESHOLD:
-                self._transition(State.HOLD)
-
-        elif self.state == State.HOLD:
-            elapsed = (self.get_clock().now() - self.hold_start_time).nanoseconds / 1e9
-            if elapsed >= self.HOLD_DURATION:
-                self.get_logger().info(
-                    f'Hold complete at waypoint {self.waypoint_index + 1}'
-                )
-                if self.waypoint_index + 1 < len(self.waypoints):
-                    self.waypoint_index += 1
-                    self._transition(State.WAYPOINT)
-                else:
-                    self.get_logger().info(
-                        'All waypoints visited — holding last position'
-                    )
+        pass
 
     # =====================================================================
     #  Subscriber callbacks
@@ -212,6 +178,11 @@ class MissionPlanner(Node):
             self.waypoints.append(ps)
         self.waypoint_index = 0
         self.get_logger().info(f'Received {len(self.waypoints)} waypoints')
+
+    def _cb_tracker_waypoint(self, msg: PoseStamped):
+        """Follow the dot tracker target whenever the FSM is in WAYPOINT mode."""
+        if self.state == State.WAYPOINT:
+            self.target_pose = msg
 
     # =====================================================================
     #  Service callbacks — just validate and transition, no side effects

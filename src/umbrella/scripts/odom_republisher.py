@@ -5,7 +5,7 @@ from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import TimeReference
-from flight_exercise_2.srv import SetPoseSource
+from umbrella.srv import SetPoseSource
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 
 class OdomRepublisher(Node):

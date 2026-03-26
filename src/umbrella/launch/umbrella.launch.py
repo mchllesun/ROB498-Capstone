@@ -8,13 +8,13 @@ def generate_launch_description():
     package_name = 'umbrella'
 
     return LaunchDescription([
-        # # Odom republisher node
-        # Node(
-        #     package=package_name,
-        #     executable='odom_republisher.py',
-        #     name='odom_republisher',
-        #     output='screen',
-        # ),
+        # Odom republisher node
+        Node(
+            package=package_name,
+            executable='odom_republisher.py',
+            name='odom_republisher',
+            output='screen',
+        ),
         # # Comm node
         # Node(
         #     package=package_name,
@@ -22,13 +22,13 @@ def generate_launch_description():
         #     name='comms_node',
         #     output='screen',
         # ),
-        # # Mission planner
-        # Node(
-        #     package=package_name,
-        #     executable='mission_planner.py',
-        #     name='mission_planner',
-        #     output='screen',
-        # ),
+        # Mission planner
+        Node(
+            package=package_name,
+            executable='mission_planner.py',
+            name='mission_planner',
+            output='screen',
+        ),
         # Camera driver
         Node(
             package=package_name,
