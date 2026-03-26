@@ -42,6 +42,18 @@ def generate_launch_description():
         #     name='obj_tracker_node',
         #     output='screen',
         # ),
+        Node(
+            package=package_name,
+            executable='dot_tracker_node.py',
+            name='dot_tracker_node',
+            output='screen',
+        ),
+        Node(
+            package=package_name,
+            executable='waypoint_generator.py',
+            name='waypoint_generator',
+            output='screen',
+        ),
         # Node(
         #     package='image_transport',
         #     executable='republish',
@@ -49,7 +61,7 @@ def generate_launch_description():
         #     arguments = ['raw', 'compressed'],
         #     remappings=[
         #         ('in', '/imx/image/raw'),
-        #         ('out', '/imx/image/compressed'),
+        #         ('out/compressed', '/imx/image/compressed'),
         #     ],
         #     output='screen',
         # ),

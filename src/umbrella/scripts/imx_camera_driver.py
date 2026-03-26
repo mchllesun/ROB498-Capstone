@@ -13,11 +13,11 @@ from sensor_msgs.msg import Image
 
 
 def build_pipeline_str(
-    capture_width=1280,
-    capture_height=720,
-    display_width=640,
-    display_height=640,
-    framerate=10,
+    capture_width=256,
+    capture_height=256,
+    display_width=256,
+    display_height=256,
+    framerate=8,
     flip_method=0,
 ):
     return (
@@ -64,7 +64,7 @@ class ImxCameraDriver(Node):
                 f"Initialized IMX camera driver (GStreamer backend). Pipeline: {pipeline_str}"
             )
 
-        self._timer = self.create_timer(0.1, self._pub_timer_callback)
+        self._timer = self.create_timer(0.2, self._pub_timer_callback)
 
     @staticmethod
     def _numpy_to_imgmsg(frame: np.ndarray) -> Image:
