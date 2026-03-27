@@ -3,6 +3,7 @@
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import PoseStamped, PoseArray
+from std_msgs.msg import Bool
 from std_srvs.srv import Trigger
 from enum import Enum
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
@@ -11,16 +12,18 @@ class State(Enum):
     IDLE = 'IDLE'
     LAUNCHED = 'LAUNCHED'
     WAYPOINT = 'WAYPOINT'
+    CIRCLE_SEARCH = 'CIRCLE_SEARCH'
     LANDING = 'LANDING'
     ABORTED = 'ABORTED'
 
 # State transition table
 TRANSITIONS = {
-    State.IDLE:     {State.LAUNCHED},
-    State.LAUNCHED: {State.WAYPOINT, State.LANDING, State.ABORTED},
-    State.WAYPOINT: {State.LANDING, State.ABORTED},
-    State.LANDING:  {State.IDLE, State.LAUNCHED, State.ABORTED},
-    State.ABORTED:  {State.IDLE, State.LAUNCHED},
+    State.IDLE:          {State.LAUNCHED},
+    State.LAUNCHED:      {State.WAYPOINT, State.LANDING, State.ABORTED},
+    State.WAYPOINT:      {State.CIRCLE_SEARCH, State.LANDING, State.ABORTED},
+    State.CIRCLE_SEARCH: {State.WAYPOINT, State.LANDING, State.ABORTED},
+    State.LANDING:       {State.IDLE, State.LAUNCHED, State.ABORTED},
+    State.ABORTED:       {State.IDLE, State.LAUNCHED},
 }
 
 class MissionPlanner(Node):
@@ -73,6 +76,17 @@ class MissionPlanner(Node):
             PoseStamped, '/waypoint_generator/target',
             self._cb_tracker_waypoint, 10
         )
+
+        # --- Circle search subscribers ---
+        self.circle_active_sub = self.create_subscription(
+            Bool, '/circle_search/active', self._cb_circle_active, 10
+        )
+        self.circle_target_sub = self.create_subscription(
+            PoseStamped, '/circle_search/target', self._cb_circle_target, 10
+        )
+
+        # --- Circle search enabled publisher (tells circle_search_node when tracking is live) ---
+        self.circle_enabled_pub = self.create_publisher(Bool, '/circle_search/enabled', 10)
 
         # --- Services ---
         self.srv_launch = self.create_service(
@@ -127,23 +141,33 @@ class MissionPlanner(Node):
             self.target_pose = tpose
 
         elif state == State.WAYPOINT:
-            wp = self.waypoints[self.waypoint_index]
-            self.target_pose = self._make_pose(
-                wp.pose.position.x,
-                wp.pose.position.y,
-                wp.pose.position.z,
-            )
-            self.get_logger().info(
-                f'Waypoint {self.waypoint_index + 1}/{len(self.waypoints)}: '
-                f'({wp.pose.position.x:.2f}, {wp.pose.position.y:.2f}, '
-                f'{wp.pose.position.z:.2f})'
-            )
+            if self.waypoints:
+                wp = self.waypoints[self.waypoint_index]
+                self.target_pose = self._make_pose(
+                    wp.pose.position.x,
+                    wp.pose.position.y,
+                    wp.pose.position.z,
+                )
+                self.get_logger().info(
+                    f'Waypoint {self.waypoint_index + 1}/{len(self.waypoints)}: '
+                    f'({wp.pose.position.x:.2f}, {wp.pose.position.y:.2f}, '
+                    f'{wp.pose.position.z:.2f})'
+                )
+            # Inform circle_search_node that dot tracking is active
+            self._pub_circle_enabled(True)
+
+        elif state == State.CIRCLE_SEARCH:
+            # Disable circle search eligibility while we're already searching
+            self._pub_circle_enabled(False)
+            self.get_logger().info('Entered CIRCLE_SEARCH state')
 
         elif state == State.LANDING:
             self.target_pose = self._make_pose(z=-0.10)
+            self._pub_circle_enabled(False)
 
         elif state == State.ABORTED:
             self.target_pose = self._make_pose(z=-0.2)
+            self._pub_circle_enabled(False)
 
     # =====================================================================
     #  State update — periodic logic for each state (runs at 2 Hz)
@@ -183,6 +207,26 @@ class MissionPlanner(Node):
         """Follow the dot tracker target whenever the FSM is in WAYPOINT mode."""
         if self.state == State.WAYPOINT:
             self.target_pose = msg
+
+    def _cb_circle_active(self, msg: Bool):
+        """React to circle_search_node signalling search start/end."""
+        if msg.data and self.state == State.WAYPOINT:
+            self._transition(State.CIRCLE_SEARCH)
+        elif not msg.data and self.state == State.CIRCLE_SEARCH:
+            # Circle finished (or dot re-acquired) — hover in place and re-enable tracking
+            self._pub_circle_enabled(True)
+            self._transition(State.WAYPOINT)
+
+    def _cb_circle_target(self, msg: PoseStamped):
+        """Follow circle waypoints while in CIRCLE_SEARCH state."""
+        if self.state == State.CIRCLE_SEARCH:
+            self.target_pose = msg
+
+    def _pub_circle_enabled(self, value: bool):
+        """Publish the enabled signal to circle_search_node."""
+        out = Bool()
+        out.data = value
+        self.circle_enabled_pub.publish(out)
 
     # =====================================================================
     #  Service callbacks — just validate and transition, no side effects

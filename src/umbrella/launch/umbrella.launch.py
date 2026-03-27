@@ -54,6 +54,12 @@ def generate_launch_description():
             name='waypoint_generator',
             output='screen',
         ),
+        Node(
+            package=package_name,
+            executable='circle_search_node.py',
+            name='circle_search_node',
+            output='screen',
+        ),
         # Node(
         #     package='image_transport',
         #     executable='republish',
