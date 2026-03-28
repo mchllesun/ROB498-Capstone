@@ -30,12 +30,12 @@ from umbrella.msg import Detection, DetectionArray
 CAMERA_TOPIC = 'imx/image/raw'
 
 # Red HSV range 1 (hue 0-10)
-HSV_LOW_1  = np.array([  0,  50,  40], dtype=np.uint8)
-HSV_HIGH_1 = np.array([ 10, 255, 200], dtype=np.uint8)
+HSV_LOW_1  = np.array([  0,  100,  100], dtype=np.uint8)
+HSV_HIGH_1 = np.array([ 10, 255, 255], dtype=np.uint8)
 
 # Red HSV range 2 (hue 160-180, the other side of the hue wrap)
-HSV_LOW_2  = np.array([160,  50,  40], dtype=np.uint8)
-HSV_HIGH_2 = np.array([180, 255, 200], dtype=np.uint8)
+HSV_LOW_2  = np.array([160,  100,  100], dtype=np.uint8)
+HSV_HIGH_2 = np.array([180, 255, 255], dtype=np.uint8)
 
 # Minimum contour area (pixels) to count as a valid detection
 MIN_AREA = 40 
