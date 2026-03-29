@@ -42,7 +42,7 @@ OUTPUT_TOPIC     = '/waypoint_generator/target'
 TARGET_LABEL   = ''    # filter to this class label; '' means any class
 MIN_CONFIDENCE = 0.0   # dot tracker confidence = contour_area/image_area, typically ~0.001-0.05
 TARGET_Z       = 0.4   # fixed hover height (metres) for all published waypoints
-M_PER_PX       = 0.002 # metres of drone movement per pixel of dot offset — tune this
+M_PER_PX       = 0.003 # metres of drone movement per pixel of dot offset — tune this
 # ---------------------------------------------------------------------------
 
 
@@ -165,7 +165,7 @@ class WaypointGeneratorNode(Node):
         wp.pose.position.x = self._current_pose.pose.position.x + dx_world
         wp.pose.position.y = self._current_pose.pose.position.y + dy_world
         wp.pose.position.z = TARGET_Z
-        wp.pose.orientation = self._current_pose.pose.orientation  # preserve yaw
+        # wp.pose.orientation = self._current_pose.pose.orientation  # preserve yaw
         return wp
 
 

@@ -31,6 +31,7 @@ install(
   scripts/obj_tracker_node.py
   scripts/dot_tracker_node.py
   scripts/waypoint_generator.py
+  scripts/circle_search_node.py
   DESTINATION lib/${PROJECT_NAME}/
 )
 
