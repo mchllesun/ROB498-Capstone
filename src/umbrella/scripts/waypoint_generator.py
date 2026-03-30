@@ -44,33 +44,16 @@ MIN_CONFIDENCE = 0.0   # dot tracker confidence = contour_area/image_area, typic
 TARGET_Z       = 0.7   # fallback hover height (metres) when no detection is present
 M_PER_PX       = 0.007 # metres of drone movement per pixel of dot offset — tune this
 
-# Height calibration: maps dot apparent size (confidence) to hover altitude.
-# confidence = contour_area / image_area (published by dot_tracker_node)
-#   small confidence (dot far away)  -> fly at MAX_Z (high up)
-#   large confidence (dot up close)  -> fly at MIN_Z (low down)
-MIN_Z          = 0.5   # minimum hover height (metres) -- never go below this
-MAX_Z          = 0.75  # maximum hover height (metres) -- never go above this
-CONF_LOW       = 0.001 # confidence value mapped to MAX_Z (dot barely visible)
-CONF_HIGH      = 0.02  # confidence value mapped to MIN_Z (dot large in frame)
+# Height calibration: proportional controller that nudges Z up/down to hold
+# a constant dot apparent size (confidence = contour_area / image_area).
+#   dot looks too small (conf < CONF_TARGET) -> step up
+#   dot looks too big   (conf > CONF_TARGET) -> step down
+MIN_Z          = 0.5    # hard minimum hover height (metres) -- never go below
+MAX_Z          = 0.75   # hard maximum hover height (metres) -- never go above
+CONF_TARGET    = 0.005  # desired dot confidence to maintain — tune this
+KP_Z           = 5.0    # proportional gain: metres of Z step per unit conf error
+MAX_Z_STEP     = 0.05   # maximum Z correction per control cycle (metres)
 # ---------------------------------------------------------------------------
-
-
-def _compute_target_z(confidence: float) -> float:
-    """Map dot apparent size (confidence) to a hover height in [MIN_Z, MAX_Z].
-
-    Linear interpolation:
-      confidence <= CONF_LOW  -> MAX_Z  (dot tiny, fly high)
-      confidence >= CONF_HIGH -> MIN_Z  (dot large, fly low)
-      in between              -> lerp
-    Result is always clamped to [MIN_Z, MAX_Z].
-    """
-    if CONF_HIGH <= CONF_LOW:
-        return TARGET_Z  # misconfigured, fall back to fixed height
-
-    t = (confidence - CONF_LOW) / (CONF_HIGH - CONF_LOW)
-    t = max(0.0, min(1.0, t))  # clamp t to [0, 1]
-    height = MAX_Z - t * (MAX_Z - MIN_Z)
-    return max(MIN_Z, min(MAX_Z, height))
 
 
 def _quat_to_yaw(q) -> float:
@@ -150,18 +133,25 @@ class WaypointGeneratorNode(Node):
             return
 
         best = max(candidates, key=lambda d: d.confidence)
-        target_z = _compute_target_z(best.confidence)
+
+        # Proportional Z controller: nudge current height toward CONF_TARGET.
+        # Positive error (dot too small) -> step up; negative -> step down.
+        conf_error = CONF_TARGET - best.confidence
+        z_step = KP_Z * conf_error
+        z_step = max(-MAX_Z_STEP, min(MAX_Z_STEP, z_step))
+        current_z = self._current_pose.pose.position.z
+        target_z = max(MIN_Z, min(MAX_Z, current_z + z_step))
+
         waypoint = self._project_to_world(best.x, best.y, target_z)
         self._wp_pub.publish(waypoint)
 
         self.get_logger().info(
             f'Published waypoint | '
-            f'det="{best.label}" ({best.confidence:.4f}) '
-            f'px=({best.x:.0f},{best.y:.0f}) | '
-            f'xyz=({waypoint.pose.position.x:.3f}, '
-            f'{waypoint.pose.position.y:.3f}, '
-            f'{waypoint.pose.position.z:.3f}) '
-            f'target_z={target_z:.3f}'
+            f'det="{best.label}" conf={best.confidence:.4f} '
+            f'err={conf_error:+.4f} z_step={z_step:+.3f} | '
+            f'current_z={current_z:.3f} -> target_z={target_z:.3f} | '
+            f'xy=({waypoint.pose.position.x:.3f},{waypoint.pose.position.y:.3f})',
+            throttle_duration_sec=0.5,
         )
 
     # ------------------------------------------------------------------
@@ -179,8 +169,8 @@ class WaypointGeneratorNode(Node):
           dot below (py > 0) → +Y waypoint
           dot above (py < 0) → -Y waypoint
 
-        target_z: desired hover altitude in metres, computed from dot apparent
-                  size and clamped to [MIN_Z, MAX_Z] by _compute_target_z().
+        target_z: desired hover altitude in metres, computed by the proportional
+                  Z controller in _cb_detections and clamped to [MIN_Z, MAX_Z].
         """
         # Offset from drone in body frame — axes are independent
         dx_body = -px * M_PER_PX   # left of centre  → +X
