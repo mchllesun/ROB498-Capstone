@@ -38,7 +38,7 @@ HSV_LOW_2  = np.array([160,  100,  100], dtype=np.uint8)
 HSV_HIGH_2 = np.array([180, 255, 255], dtype=np.uint8)
 
 # Minimum contour area (pixels) to count as a valid detection
-MIN_AREA = 40 
+MIN_AREA = 25
 # ---------------------------------------------------------------------------
 
 

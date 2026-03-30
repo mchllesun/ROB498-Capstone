@@ -29,7 +29,7 @@ TRANSITIONS = {
 
 class MissionPlanner(Node):
 
-    HOVER_HEIGHT = 0.4       # meters
+    HOVER_HEIGHT = 0.7       # meters
 
     def __init__(self):
         super().__init__('mission_planner')

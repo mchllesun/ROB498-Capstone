@@ -12,6 +12,7 @@ Usage:
 import argparse
 import time
 import gi
+import cv2
 import numpy as np
 
 gi.require_version('Gst', '1.0')
@@ -67,7 +68,7 @@ class Camera:
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('--model', default='/home/jetson/ROB498-Capstone/install/umbrella/share/umbrella/models/yolo26n.pt')
+    parser.add_argument('--model', default='/home/jetson/ROB498-Capstone/install/umbrella/share/umbrella/models/yolo26s.pt')
     parser.add_argument('--device', default='cuda:0')
     parser.add_argument('--fp16', action='store_true')
     parser.add_argument('--imgsz', type=int, default=320)
@@ -134,6 +135,14 @@ def main():
             fps = 1000.0 / latency_ms
             print(f"{frame_count:>6}  {latency_ms:>8.1f}ms  {fps:>5.1f}  {det_str}")
 
+            # Draw boxes and overlay stats on a copy of the frame
+            vis = results[0].plot()
+            cv2.putText(vis, f"{fps:.1f} FPS  {latency_ms:.0f}ms", (8, 28),
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2, cv2.LINE_AA)
+            cv2.imshow('YOLO Bench', vis)
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+
             # Print rolling stats every 30 frames
             if frame_count % 30 == 0:
                 avg = sum(latencies[-30:]) / 30
@@ -151,6 +160,7 @@ def main():
             print(f"Max latency:  {max(latencies):.1f} ms")
     finally:
         cam.close()
+        cv2.destroyAllWindows()
 
 
 if __name__ == '__main__':

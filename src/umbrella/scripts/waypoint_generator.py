@@ -41,8 +41,8 @@ OUTPUT_TOPIC     = '/waypoint_generator/target'
 
 TARGET_LABEL   = ''    # filter to this class label; '' means any class
 MIN_CONFIDENCE = 0.0   # dot tracker confidence = contour_area/image_area, typically ~0.001-0.05
-TARGET_Z       = 0.4   # fixed hover height (metres) for all published waypoints
-M_PER_PX       = 0.003 # metres of drone movement per pixel of dot offset — tune this
+TARGET_Z       = 0.7   # fixed hover height (metres) for all published waypoints
+M_PER_PX       = 0.007 # metres of drone movement per pixel of dot offset — tune this
 # ---------------------------------------------------------------------------
 
 
