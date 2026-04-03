@@ -109,7 +109,7 @@ class DotTrackerNode(Node):
                 cx = M['m10'] / M['m00']
                 cy = M['m01'] / M['m00']
 
-                confidence = min(best_area / image_area, 1.0)
+                confidence = best_area
 
                 det = Detection()
                 det.x = float(cx - w / 2.0)

@@ -42,17 +42,17 @@ OUTPUT_TOPIC     = '/waypoint_generator/target'
 TARGET_LABEL   = ''    # filter to this class label; '' means any class
 MIN_CONFIDENCE = 0.0   # dot tracker confidence = contour_area/image_area, typically ~0.001-0.05
 TARGET_Z       = 0.7   # fallback hover height (metres) when no detection is present
-M_PER_PX       = 0.007 # metres of drone movement per pixel of dot offset — tune this
+M_PER_PX       = 0.005 # metres of drone movement per pixel of dot offset — tune this
 
 # Height calibration: proportional controller that nudges Z up/down to hold
 # a constant dot apparent size (confidence = contour_area / image_area).
 #   dot looks too small (conf < CONF_TARGET) -> step up
 #   dot looks too big   (conf > CONF_TARGET) -> step down
 MIN_Z          = 0.5    # hard minimum hover height (metres) -- never go below
-MAX_Z          = 0.75   # hard maximum hover height (metres) -- never go above
-CONF_TARGET    = 0.005  # desired dot confidence to maintain — tune this
-KP_Z           = 5.0    # proportional gain: metres of Z step per unit conf error
-MAX_Z_STEP     = 0.05   # maximum Z correction per control cycle (metres)
+MAX_Z          = 1.0   # hard maximum hover height (metres) -- never go above
+CONF_TARGET    = 400  # desired dot confidence to maintain — tune this
+KP_Z           = -0.001    # proportional gain: metres of Z step per unit conf error
+MAX_Z_STEP     = 1.0   # maximum Z correction per control cycle (metres)
 # ---------------------------------------------------------------------------
 
 
@@ -187,7 +187,6 @@ class WaypointGeneratorNode(Node):
         wp.pose.position.x = self._current_pose.pose.position.x + dx_world
         wp.pose.position.y = self._current_pose.pose.position.y + dy_world
         wp.pose.position.z = target_z
-        # wp.pose.orientation = self._current_pose.pose.orientation  # preserve yaw
         return wp
 
 

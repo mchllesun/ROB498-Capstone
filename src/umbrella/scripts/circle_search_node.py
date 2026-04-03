@@ -27,9 +27,10 @@ from std_msgs.msg import Empty
 # Configuration
 # ---------------------------------------------------------------------------
 SPIRAL_PITCH_M   = 1.0  # distance between outward loops
-POINTS_PER_REV   = 36    # angular resolution (every 10°)
+POINTS_PER_REV   = 10    # angular resolution
 STEP_ACCEPT_M    = 0.20  # metres within which a waypoint is considered reached
 WP_RATE_HZ       = 5.0   # how often to check whether to advance the waypoint
+SEARCH_Z_HEIGHT  = 1.0
 # ---------------------------------------------------------------------------
 
 
@@ -125,7 +126,7 @@ class CircleSearchNode(Node):
         wp.header.frame_id = 'map'
         wp.pose.position.x = x
         wp.pose.position.y = y
-        wp.pose.position.z = 0.7
+        wp.pose.position.z = SEARCH_Z_HEIGHT
         wp.pose.orientation.w = 1.0
         return wp
 

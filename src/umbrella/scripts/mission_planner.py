@@ -12,7 +12,7 @@ from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
 class State(Enum):
     IDLE = 'IDLE'
     LAUNCHED = 'LAUNCHED'
-    WAYPOINT = 'WAYPOINT'
+    FOLLOWING = 'FOLLOWING'
     CIRCLE_SEARCH = 'CIRCLE_SEARCH'
     LANDING = 'LANDING'
     ABORTED = 'ABORTED'
@@ -20,9 +20,9 @@ class State(Enum):
 # State transition table
 TRANSITIONS = {
     State.IDLE:          {State.LAUNCHED},
-    State.LAUNCHED:      {State.WAYPOINT, State.LANDING, State.ABORTED},
-    State.WAYPOINT:      {State.CIRCLE_SEARCH, State.LANDING, State.ABORTED},
-    State.CIRCLE_SEARCH: {State.WAYPOINT, State.LANDING, State.ABORTED},
+    State.LAUNCHED:      {State.FOLLOWING, State.LANDING, State.ABORTED},
+    State.FOLLOWING:      {State.CIRCLE_SEARCH, State.LANDING, State.ABORTED},
+    State.CIRCLE_SEARCH: {State.FOLLOWING, State.LANDING, State.ABORTED},
     State.LANDING:       {State.IDLE, State.LAUNCHED, State.ABORTED},
     State.ABORTED:       {State.IDLE, State.LAUNCHED},
 }
@@ -37,10 +37,6 @@ class MissionPlanner(Node):
         # --- FSM state ---
         self.state = State.IDLE
         self.target_pose = self._make_pose(z=-0.1)
-
-        # --- Waypoint tracking ---
-        self.waypoints = []       # list of PoseStamped
-        self.waypoint_index = 0
 
         # --- Current drone position ---
         self.current_pose = None  # PoseStamped
@@ -68,11 +64,6 @@ class MissionPlanner(Node):
         self.pose_sub = self.create_subscription(
             PoseStamped, '/mavros/local_position/pose',
             self._cb_current_pose, qos_profile
-        )
-
-        # --- Waypoint subscriber ---
-        self.waypoint_sub = self.create_subscription(
-            PoseArray, 'mission_planner/waypoints', self._cb_waypoints, 10
         )
 
         # --- Dot tracker waypoint subscriber ---
@@ -141,12 +132,10 @@ class MissionPlanner(Node):
     def _on_enter(self, state: State):
         if state == State.LAUNCHED:
             tpose = self._make_pose(z=self.HOVER_HEIGHT)
-            # tpose.orientation.z = -1
-            # tpose.orientation.w = 0
             self.target_pose = tpose
 
-        elif state == State.WAYPOINT:
-            # Reset detection timer when entering WAYPOINT
+        elif state == State.FOLLOWING:
+            # Reset detection timer when entering FOLLOWING
             self.last_det_time = self.get_clock().now()
 
         elif state == State.CIRCLE_SEARCH:
@@ -164,7 +153,7 @@ class MissionPlanner(Node):
     #  State update — periodic logic for each state (runs at 2 Hz)
     # =====================================================================
     def _state_update(self):
-        if self.state == State.WAYPOINT and self.last_det_time is not None:
+        if self.state == State.FOLLOWING and self.last_det_time is not None:
             elapsed = (self.get_clock().now() - self.last_det_time).nanoseconds * 1e-9
             if elapsed >= self.DETECT_TIMEOUT_SEC:
                 self.get_logger().info(f'Lost tracking for {elapsed:.1f}s. Start spiral search.')
@@ -180,27 +169,9 @@ class MissionPlanner(Node):
         self.target_pose.header.stamp = self.get_clock().now().to_msg()
         self.pose_pub.publish(self.target_pose)
 
-    def _cb_waypoints(self, msg: PoseArray):
-        if not len(self.waypoints) == 0:
-            return
-        for pose in msg.poses:
-            ps = PoseStamped()
-            ps.header.frame_id = 'map'
-            ps.pose = pose
-            ps.pose.position.x = -pose.position.x
-            ps.pose.position.y = -pose.position.y
-
-            # ps.pose.orientation.x = 0
-            # ps.pose.orientation.y = 0
-            # ps.pose.orientation.z = -1
-            # ps.pose.orientation.w = 0
-            self.waypoints.append(ps)
-        self.waypoint_index = 0
-        self.get_logger().info(f'Received {len(self.waypoints)} waypoints')
-
     def _cb_tracker_waypoint(self, msg: PoseStamped):
-        """Follow the dot tracker target whenever the FSM is in WAYPOINT mode."""
-        if self.state == State.WAYPOINT:
+        """Follow the dot tracker target whenever the FSM is in FOLLOWING mode."""
+        if self.state == State.FOLLOWING:
             self.target_pose = msg
 
     def _cb_detections(self, msg: DetectionArray):
@@ -209,7 +180,7 @@ class MissionPlanner(Node):
             self.last_det_time = self.get_clock().now()
             if self.state == State.CIRCLE_SEARCH:
                 self.get_logger().info('Target re-acquired! Returning to normal tracking.')
-                self._transition(State.WAYPOINT)
+                self._transition(State.FOLLOWING)
 
     def _cb_circle_target(self, msg: PoseStamped):
         """Follow circle waypoints while in CIRCLE_SEARCH state."""
@@ -224,7 +195,7 @@ class MissionPlanner(Node):
         return response
 
     def _cb_test(self, request, response):
-        response.success = self._transition(State.WAYPOINT)
+        response.success = self._transition(State.FOLLOWING)
         return response
 
     def _cb_land(self, request, response):
